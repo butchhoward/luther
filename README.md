@@ -11,7 +11,7 @@ I am using a [Feather Huzzah](https://www.adafruit.com/product/2821) and the [Lo
 * Report the temperature every 12 seconds
 * Tweet the temperature to Luther's twitter when either:
   * 12 hours has elapsed without a tweet
-  * The current temperature has change by 5 Degrees compared to the most recent tweet
+  * The current temperature has changed by 5 Degrees compared to the most recent tweet
   * The on-board button is pressed
 * Provide a display of the [temperature history](https://app.losant.com/#/dashboards/572d0ee088a6f20100df2900)
 
@@ -19,6 +19,9 @@ Thanks to [Losant](https://www.losant.com) for the giving out free [Builder Kits
 
 # Notes:
 
-This sketch is based on the temperature monitor sketch from the [Builder Kit Source](https://github.com/butchhoward/losant-kit-builder).
+This sketch is based on the temperature monitor sketch from the [Builder Kit Source](https://github.com/Losant/losant-kit-builder).
 
 I use 12 seconds for the delivery rate because the underlying MQTT library has a fixed (#defined) connection timeout of 15 seconds. Using the 15 seconds time as the Builder Kit sample did results in frequent timeout/disconnect errors.
+
+The Arduino IDE makes updating the code on the device simple. It also gets in the way of writing code in some ways. Fortunately, most of the issues I ran into can be dodged by putting methods, constants, and global (yuck) variables inside an unnamed namespace. Apparently, this avoids the 'helpful' automatic prototype generation and (maybe) some other 'helpful' things the IDE does. I understand that these things almost certainly make it easier for folks new to programming to get started with these kinds of devices. Bravo to Arduino for making it easier for folks (I mean that sincerely). It is a nuisance to me that this helpfulness cannot be turned off.
+
