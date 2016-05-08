@@ -26,43 +26,43 @@ const char* LOSANT_ACCESS_SECRET
 #include "credentials_losant.h"
 
 
-const int BUTTON_PIN = 14;
-const int LED_PIN = 12;
-const int ONBOARD_RED_LED_PIN = 0;
-const int ONBOARD_BLUE_LED_PIN = 2;
-
-bool ledState = false;
-
-WiFiClientSecure wifiClient;
-
-LosantDevice device(LOSANT_DEVICE_ID);
-
 namespace {
-  double currentTempF = 0.0;
-  double currentTempC = 0.0;
-  int tempSum = 0;
-  int tempCount = 0;
-  
-  int buttonState = 0;
-  int timeSinceLastRead = 0;
-  double tempAtLastTweet = 0.0;
-  int timeSinceLastTweet = 0;
+  const int BUTTON_PIN = 14;
+  const int LED_PIN = 12;
+  const int ONBOARD_RED_LED_PIN = 0;
+  const int ONBOARD_BLUE_LED_PIN = 2;
   const int AUTOMATIC_TWEET_INTERVAL_MILLSECONDS = 12 * 60 * 60 * 1000;
   const int DATA_REPORT_INTERVAL_MILLISECONDS = 12 * 1000; 
+  
+  WiFiClientSecure wifiClient;
+  LosantDevice device(LOSANT_DEVICE_ID);
+  double currentTempF = 0.0;
+  double currentTempC = 0.0;
+  
+  int tempSum = 0;
+  int tempCount = 0;
+  int timeSinceLastRead = 0;
+  
+  double tempAtLastTweet = 0.0;
+  int timeSinceLastTweet = 0;
+  
+  int buttonState = 0;
+  bool ledState = false;
 
-  boolean timeToTweetAgain() {
+  boolean timeToTweetElapsed() {
     boolean timeToTweet = false;
-
     if (timeSinceLastTweet > AUTOMATIC_TWEET_INTERVAL_MILLSECONDS) {
       timeToTweet = true;
     }
-    else {
-      double tempDiff = currentTempF - tempAtLastTweet;
-      if ( tempDiff > 5.0 || tempDiff < -5.0 ) {
-        timeToTweet = true;
-      }
-    }
+    return timeToTweet;
+  }
 
+  boolean tempChangeSinceLastTweetIsLarge() {
+    boolean timeToTweet = false;
+    double tempDiff = currentTempF - tempAtLastTweet;
+    if ( tempDiff > 5.0 || tempDiff < -5.0 ) {
+      timeToTweet = true;
+    }
     return timeToTweet;
   }
   
@@ -85,15 +85,15 @@ namespace {
     currentTempF = convertCtoF(currentTempC);
   }
   
-  void placeTemperatureDataInState( JsonObject& root) {
-    root["tempC"] = currentTempC;
-    root["tempF"] = currentTempF;
+  void placeTemperatureDataInState( JsonObject& state) {
+    state["tempC"] = currentTempC;
+    state["tempF"] = currentTempF;
   }
   
-  void sendState( JsonObject& root) {
-    root.printTo(Serial);
+  void sendState( JsonObject& state) {
+    state.printTo(Serial);
     Serial.println(";");
-    device.sendState(root);
+    device.sendState(state);
   }
 
   void flashOnBoardLED(int ledPin) {
@@ -112,12 +112,18 @@ namespace {
     flashOnBoardLED(ONBOARD_BLUE_LED_PIN);
   }
 
-  void sendTweetSignal() {
+  void addTweetReasonToState(const char* reason, JsonObject& state) {
+    if (reason) {
+      state["tweetReason"] = reason;    
+    }
+  }
+  void sendTweetSignal(const char* reason = NULL) {
     StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
-    root["button"] = true;
-    placeTemperatureDataInState( root );
-    sendState(root);
+    JsonObject& state = jsonBuffer.createObject();
+    state["tweet"] = true;
+    placeTemperatureDataInState( state );
+    addTweetReasonToState(reason, state);
+    sendState(state);
     timeSinceLastTweet = 0;
     tempAtLastTweet = currentTempF;
     Serial.println("Tweet requested");
@@ -126,14 +132,14 @@ namespace {
 
   void buttonPressed() {
     Serial.println("Button Pressed!");
-    sendTweetSignal();
+    sendTweetSignal("Button Pressed");
   }
   
   void reportTemp() {
     StaticJsonBuffer<200> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
-    placeTemperatureDataInState( root );
-    sendState(root);
+    JsonObject& state = jsonBuffer.createObject();
+    placeTemperatureDataInState( state );
+    sendState(state);
   }
 
   void ledOn() {
@@ -181,8 +187,11 @@ namespace {
   }
 
   void sendPeriodicTweet() {
-    if( timeToTweetAgain() ) {
-      sendTweetSignal();
+    if( timeToTweetElapsed() ) {
+      sendTweetSignal("12-hours passed");
+    }
+    else if ( tempChangeSinceLastTweetIsLarge() ) {
+      sendTweetSignal("Temp Change");
     }
   }
 
